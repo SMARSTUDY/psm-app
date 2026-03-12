@@ -248,8 +248,8 @@ function AttestationModal({
     },
     onSuccess: (data: Attestation) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attestations"] });
-      const apiBase = "__PORT_5000__".startsWith("__") ? "http://localhost:5000" : "__PORT_5000__";
-      window.open(`${apiBase}/api/attestations/${data.id}/pdf`, "_blank");
+      
+      window.open(`/api/attestations/${data.id}/pdf`, "_blank");
       toast({ title: "Attestation générée", description: `PDF téléchargé pour ${selectedClient} (${selectedYear}).` });
       setOpen(false);
       resetForm();
@@ -566,10 +566,6 @@ function AttestationHistory() {
     queryKey: ["/api/attestations"],
   });
 
-  const apiBase = "__PORT_5000__".startsWith("__")
-    ? "http://localhost:5000"
-    : "__PORT_5000__";
-
   if (isLoading) return <Skeleton className="h-20 w-full" />;
   if (attestations.length === 0) return null;
 
@@ -594,7 +590,7 @@ function AttestationHistory() {
               </p>
             </div>
             <a
-              href={`${apiBase}/api/attestations/${att.id}/pdf`}
+              href={`/api/attestations/${att.id}/pdf`}
               target="_blank"
               rel="noopener noreferrer"
               data-testid={`link-download-attestation-${att.id}`}
@@ -651,10 +647,7 @@ export default function HomePage() {
     files.forEach(f => formData.append("files", f));
 
     try {
-      const apiBase = "__PORT_5000__".startsWith("__")
-        ? "http://localhost:5000"
-        : "__PORT_5000__";
-      const res = await fetch(`${apiBase}/api/invoices/upload`, {
+      const res = await fetch(`/api/invoices/upload`, {
         method: "POST",
         body: formData,
         headers: { "X-Visitor-Id": "browser-session" },
