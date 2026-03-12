@@ -143,7 +143,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     res.json(attestations);
   });
 
-  // ── POST /api/attestations/generate ─────────────────────────────
+  // ── POST /api/attestations/generate ─── génère ET retourne le PDF directement
   app.post("/api/attestations/generate", async (req: any, res) => {
     const sessionId = getSessionId(req);
     const {
@@ -166,14 +166,10 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     }
 
     const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-    const invoiceIds = JSON.stringify(invoices.map(i => i.id));
-
-    const attestation = storage.createAttestation({
-      sessionId,
+    const attestationData = {
       clientName,
       year: parseInt(year),
       totalAmount,
-      invoiceIds,
       generatedAt: new Date().toISOString(),
       companyName,
       companyAddress,
@@ -181,37 +177,22 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       companyPhone,
       companyEmail,
       intervenants: JSON.stringify(intervenants),
-    });
+    };
 
-    res.json(attestation);
-  });
-
-  // ── GET /api/attestations/:id/pdf ────────────────────────────────
-  app.get("/api/attestations/:id/pdf", (req: any, res) => {
-    const sessionId = getSessionId(req);
-    const id = parseInt(req.params.id);
-    const attestations = storage.getAttestations(sessionId);
-    const attestation = attestations.find(a => a.id === id);
-
-    if (!attestation) {
-      return res.status(404).json({ error: "Attestation introuvable" });
-    }
-
-    const invoiceIds: number[] = JSON.parse(attestation.invoiceIds);
-    const allInvoices = storage.getInvoices(sessionId);
-    const invoices = allInvoices.filter(inv => invoiceIds.includes(inv.id));
-
+    // Générer le PDF directement dans la réponse
     const doc = new PDFDocument({ margin: 50, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="attestation-fiscale-${attestation.clientName.replace(/\s+/g, "-")}-${attestation.year}.pdf"`
+      `attachment; filename="attestation-fiscale-${clientName.replace(/\s+/g, "-")}-${year}.pdf"`
     );
     doc.pipe(res);
 
     // Parse intervenants
     let intervenantsList: { name: string; hourlyRate: string }[] = [];
-    try { intervenantsList = JSON.parse(attestation.intervenants || "[]"); } catch {}
+    try { intervenantsList = JSON.parse(attestationData.intervenants || "[]"); } catch {}
+
+    const attestation = attestationData;
 
     const companyDisplay = attestation.companyName || "PSM — Personal Services Management";
     const emitDate = new Date(attestation.generatedAt).toLocaleDateString("fr-FR", {

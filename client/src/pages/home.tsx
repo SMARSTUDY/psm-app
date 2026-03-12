@@ -28,15 +28,7 @@ function formatEuro(amount: number) {
   return amount.toFixed(2).replace(".", ",") + " €";
 }
 
-async function downloadPdf(id: number, clientName: string, year: number) {
-  const res = await fetch(`/api/attestations/${id}/pdf`, {
-    headers: { "X-Visitor-Id": "browser-session" },
-  });
-  if (!res.ok) {
-    alert("Erreur lors du téléchargement du PDF.");
-    return;
-  }
-  const blob = await res.blob();
+function triggerBlobDownload(blob: Blob, clientName: string, year: number) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -257,18 +249,29 @@ function AttestationModal({
   const generateMutation = useMutation({
     mutationFn: async () => {
       const validIntervenants = intervenants.filter(i => i.name.trim());
-      const res = await apiRequest("POST", "/api/attestations/generate", {
-        clientName: selectedClient,
-        year: parseInt(selectedYear),
-        companyName, companyAddress, companySiret, companyPhone, companyEmail,
-        intervenants: validIntervenants,
+      const res = await fetch("/api/attestations/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Visitor-Id": "browser-session",
+        },
+        body: JSON.stringify({
+          clientName: selectedClient,
+          year: parseInt(selectedYear),
+          companyName, companyAddress, companySiret, companyPhone, companyEmail,
+          intervenants: validIntervenants,
+        }),
       });
-      return res.json();
+      if (!res.ok) {
+        // Try to parse error JSON
+        let msg = "Impossible de générer l'attestation.";
+        try { const e = await res.json(); msg = e.error || msg; } catch {}
+        throw new Error(msg);
+      }
+      return res.blob();
     },
-    onSuccess: (data: Attestation) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attestations"] });
-
-      downloadPdf(data.id, data.clientName, data.year);
+    onSuccess: (blob: Blob) => {
+      triggerBlobDownload(blob, selectedClient, parseInt(selectedYear));
       toast({ title: "Attestation générée", description: `PDF téléchargé pour ${selectedClient} (${selectedYear}).` });
       setOpen(false);
       resetForm();
@@ -581,6 +584,7 @@ function ClientSummaryCards({ invoices }: { invoices: Invoice[] }) {
 
 // ── Attestation History ────────────────────────────────────────────
 function AttestationHistory() {
+  const { toast } = useToast();
   const { data: attestations = [], isLoading } = useQuery<Attestation[]>({
     queryKey: ["/api/attestations"],
   });
@@ -613,7 +617,7 @@ function AttestationHistory() {
               variant="outline"
               className="border-[#E8720C] text-[#E8720C] hover:bg-[#E8720C] hover:text-white h-8"
               data-testid={`link-download-attestation-${att.id}`}
-              onClick={() => downloadPdf(att.id, att.clientName, att.year)}
+              onClick={() => toast({ title: "Info", description: "Veuillez regénérer l'attestation depuis le bouton principal." })}
             >
               <Download className="w-3.5 h-3.5 mr-1.5" />
               PDF
