@@ -28,6 +28,25 @@ function formatEuro(amount: number) {
   return amount.toFixed(2).replace(".", ",") + " €";
 }
 
+async function downloadPdf(id: number, clientName: string, year: number) {
+  const res = await fetch(`/api/attestations/${id}/pdf`, {
+    headers: { "X-Visitor-Id": "browser-session" },
+  });
+  if (!res.ok) {
+    alert("Erreur lors du téléchargement du PDF.");
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `attestation-fiscale-${clientName.replace(/\s+/g, "-")}-${year}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function groupByClient(invoices: Invoice[]) {
   const map = new Map<string, { client: string; total: number; count: number; years: number[] }>();
   for (const inv of invoices) {
@@ -248,8 +267,8 @@ function AttestationModal({
     },
     onSuccess: (data: Attestation) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attestations"] });
-      
-      window.open(`/api/attestations/${data.id}/pdf`, "_blank");
+
+      downloadPdf(data.id, data.clientName, data.year);
       toast({ title: "Attestation générée", description: `PDF téléchargé pour ${selectedClient} (${selectedYear}).` });
       setOpen(false);
       resetForm();
@@ -589,17 +608,16 @@ function AttestationHistory() {
                 {new Date(att.generatedAt).toLocaleDateString("fr-FR")}
               </p>
             </div>
-            <a
-              href={`/api/attestations/${att.id}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-[#E8720C] text-[#E8720C] hover:bg-[#E8720C] hover:text-white h-8"
               data-testid={`link-download-attestation-${att.id}`}
+              onClick={() => downloadPdf(att.id, att.clientName, att.year)}
             >
-              <Button size="sm" variant="outline" className="border-[#E8720C] text-[#E8720C] hover:bg-[#E8720C] hover:text-white h-8">
-                <Download className="w-3.5 h-3.5 mr-1.5" />
-                PDF
-              </Button>
-            </a>
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              PDF
+            </Button>
           </div>
         ))}
       </div>
