@@ -24,8 +24,11 @@ async function getPdfjs() {
   const m = await import("pdfjs-dist/legacy/build/pdf.mjs" as string);
   const lib = m.default || m;
 
-  // Disable worker entirely — runs in main thread, works on any server
-  lib.GlobalWorkerOptions.workerSrc = "";
+  // Use fake worker — import the worker source directly into main thread
+  // This avoids any file path issues on Railway
+  const workerModule = await import("pdfjs-dist/legacy/build/pdf.worker.mjs" as string);
+  const workerSrc = workerModule.default || workerModule;
+  lib.GlobalWorkerOptions.workerSrc = workerSrc;
 
   _pdfjsLib = lib;
   return lib;
