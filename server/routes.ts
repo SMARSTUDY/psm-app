@@ -21,19 +21,27 @@ function getSessionId(req: any): string {
   return req.headers["x-visitor-id"] || "default-session";
 }
 
-async function extractInvoiceData(pdfText: string, fileName: string) {
+async function extractInvoiceData(pdfBuffer: Buffer, fileName: string) {
+  const pdfBase64 = pdfBuffer.toString("base64");
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 1024,
     messages: [
       {
         role: "user",
-        content: `Tu es un assistant comptable expert. Analyse ce texte extrait d'une facture PDF et extrais les informations suivantes.
-
-Texte de la facture :
-"""
-${pdfText.substring(0, 3000)}
-"""
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdfBase64,
+            },
+          } as any,
+          {
+            type: "text",
+            text: `Tu es un assistant comptable expert. Analyse cette facture PDF et extrais les informations suivantes.
 
 Réponds UNIQUEMENT avec un objet JSON valide (sans markdown, sans commentaires) avec exactement ces champs :
 {
@@ -46,16 +54,17 @@ Réponds UNIQUEMENT avec un objet JSON valide (sans markdown, sans commentaires)
 Si une information est manquante ou illisible, utilise ces valeurs par défaut :
 - clientName: "Client inconnu"
 - amount: 0
-- date: "${new Date().getFullYear()}-01-01"  
+- date: "${new Date().getFullYear()}-01-01"
 - serviceType: "Prestation de service à la personne"
 
 IMPORTANT: amount doit être un nombre décimal (ex: 150.00), pas une chaîne.`,
+          },
+        ],
       },
     ],
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "{}";
-  // Strip any markdown code blocks if present
   const cleaned = raw.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
   const data = JSON.parse(cleaned);
 
@@ -89,8 +98,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
     for (const file of files) {
       try {
-        const pdfText = await extractPdfText(file.buffer);
-        const extracted = await extractInvoiceData(pdfText, file.originalname);
+        const extracted = await extractInvoiceData(file.buffer, file.originalname);
         const year = parseInt(extracted.date.split("-")[0]) || new Date().getFullYear();
 
         const invoice = storage.createInvoice({
