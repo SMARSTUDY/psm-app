@@ -1,7 +1,6 @@
 /**
- * PDF text extraction — server-side using pdfjs-dist legacy build.
+ * PDF text extraction — server-side using pdfjs-dist legacy build (no worker).
  */
-import path from "path";
 
 // Polyfill DOMMatrix for pdfjs in Node.js
 if (typeof globalThis.DOMMatrix === "undefined") {
@@ -25,10 +24,8 @@ async function getPdfjs() {
   const m = await import("pdfjs-dist/legacy/build/pdf.mjs" as string);
   const lib = m.default || m;
 
-  // Resolve the worker file path
-  // process.cwd() = project root on both local dev and Railway
-  const workerSrc = path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
-  lib.GlobalWorkerOptions.workerSrc = workerSrc;
+  // Disable worker entirely — runs in main thread, works on any server
+  lib.GlobalWorkerOptions.workerSrc = "";
 
   _pdfjsLib = lib;
   return lib;
