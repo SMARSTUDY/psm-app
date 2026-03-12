@@ -372,24 +372,24 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     doc.moveDown(1.5);
 
     // ─── Signature ──────────────────────────────────────────────────
+    const sigStartY = doc.y;
     doc.fontSize(9).font("Helvetica").fillColor("#333333")
-      .text("Fait pour valoir ce que de droit.", 50, doc.y);
-    doc.moveDown(0.5);
-    doc.text(`Émis le ${emitDate} par ${companyDisplay}`, 50, doc.y);
+      .text("Fait pour valoir ce que de droit.", 50, sigStartY);
+    doc.text(`Émis le ${emitDate} par ${companyDisplay}`, 50, sigStartY + 14);
+    const sigBoxY = sigStartY + 30;
+    doc.rect(50, sigBoxY, 200, 55).stroke("#CCCCCC");
+    doc.fillColor("#AAAAAA").fontSize(8).text("Signature et cachet", 65, sigBoxY + 40);
 
-    doc.moveDown(1.5);
-    doc.rect(50, doc.y, 200, 55).stroke("#CCCCCC");
-    doc.fillColor("#AAAAAA").fontSize(8).text("Signature et cachet", 65, doc.y + 40);
-
-    // ─── Footer ─────────────────────────────────────────────────────
-    doc.rect(0, 782, 595, 60).fill("#1E1C1A");
+    // ─── Footer — positionné juste après la signature ────────────────
+    const footerY = sigBoxY + 75;
+    doc.rect(0, footerY, 595, 46).fill("#1E1C1A");
     doc.fillColor("#AAAAAA").fontSize(7.5).font("Helvetica")
       .text(
         `${companyDisplay} | Agrément SAP | CGI art. 199 sexdecies | Document généré automatiquement par PSM`,
-        50, 792, { width: 495, align: "center" }
+        50, footerY + 8, { width: 495, align: "center" }
       );
     doc.fillColor("#E8720C").fontSize(7)
-      .text("Created with Perplexity Computer — perplexity.ai/computer", 50, 810, { width: 495, align: "center" });
+      .text("Created with Perplexity Computer — perplexity.ai/computer", 50, footerY + 26, { width: 495, align: "center" });
 
     doc.end();
   });
